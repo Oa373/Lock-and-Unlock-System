@@ -1,0 +1,319 @@
+// Program function: Serial Communication Transmit / Receive example.
+#pragma config OSC = HS // set OSC mode to HS
+#pragma config WDT = OFF // set watchdog timer off
+#pragma config LVP = OFF // Low Voltage Programming Off
+#pragma config DEBUG = OFF // Compile without extra Debug compile Code
+
+// Include Files
+#include <p18f4520.h>
+#include <delays.h>
+#include <usart.h>
+
+#define  LUCK PORTDbits.RD0
+#define  LED1 PORTDbits.RD1
+#define  LED2 PORTDbits.RD2
+#define  LED3 PORTDbits.RD3
+#define  BUZ PORTDbits.RD4
+
+
+
+unsigned char input[3];
+char  Inputdata;
+char Pass1 = '1' ;
+char Pass2 = '2' ;
+char Pass3 = '3';  
+int WrongCheck = 0;
+ 
+ 
+
+unsigned char EEPROM_Read ( unsigned char address);
+char EEPROM_Write ( unsigned char address, unsigned char  data );
+void PasswordChange();
+void WrongPassword();
+void CorrectPassword();
+
+
+
+
+void main ()
+{
+  
+   Pass1 = EEPROM_Read (0x00);
+   Pass2 = EEPROM_Read (0x01);
+   Pass3 = EEPROM_Read (0x02);
+
+   TRISD = 0;
+   PORTD = 0;
+
+    
+// Set USART Parameters Baud rate 19.200 Baud 8 data bits 2 stop bits, no interrupts
+OpenUSART(USART_TX_INT_OFF & USART_RX_INT_OFF & USART_ASYNCH_MODE & USART_EIGHT_BIT & USART_CONT_RX & USART_BRGH_HIGH, 129);
+
+putrsUSART(" \n\r ****** Welcome to The Electronic Lock & Unlock System ****** \r\n\n ");
+ putrsUSART("\r\n\n");
+ putrsUSART("\r\n\n");
+   
+while(1)
+  
+      {
+ 
+
+        putrsUSART(" Enter Password: \r\n ");
+	
+	 Delay10KTCYx(100); // Delay for a while
+	while(BusyUSART()); // wait till not busy
+
+// wait for user input
+while (!DataRdyUSART()); //Make sure is ready
+   
+       while(1)    
+          {
+	
+                if (DataRdyUSART())
+                {
+		
+		            getsUSART(input,3);      //get character from buffer into input
+                    putrsUSART("\r\r***");  
+		   
+		   
+		   if ( ( input[0] == EEPROM_Read (0x00) ) &&  ( input[1] == EEPROM_Read (0x01) ) && ( input[2] == EEPROM_Read (0x02) ) )
+		   {
+		      
+		          putrsUSART("\r\n\n");
+			      putrsUSART("\r\n\n");
+		    	  putrsUSART("Correct Password.");
+			      CorrectPassword();
+		          WrongCheck=0;
+			 
+                   break;
+		   }
+		   else
+		   {
+		      
+		         putrsUSART("\r\n\n");
+			     putrsUSART("\r\n\n");
+			     putrsUSART("Wrong Password.");
+			     WrongCheck ++;
+	       if(WrongCheck == 3)
+			    {
+				  putrsUSART("\r\n\n");
+				  putrsUSART("\r\n\n");
+				  WrongPassword();
+				  }
+				 putrsUSART("\r\n\n");
+				   putrsUSART("\r\n\n");
+				  break;
+		    }
+          }
+       }      
+   }
+}
+
+// founctions diffent
+
+unsigned char EEPROM_Read ( unsigned char address)
+{
+   unsigned char data = 0;
+   EEADR = address;
+   EECON1bits.EEPGD = 0;
+   EECON1bits.CFGS = 0;
+   EECON1bits.RD = 0x01;
+   data = EEDATA;
+   
+   return (data);
+}
+
+
+char EEPROM_Write ( unsigned char address, unsigned char data )
+{
+   unsigned char flagGIE = 0;
+   unsigned char flagGIEH = 0;
+   unsigned char flagGIEL = 0;
+   EEADR = address;
+   EEDATA = data; 
+   EECON1bits.EEPGD = 0;
+   EECON1bits.CFGS = 0;
+   EECON1bits.WREN = 0x01;
+   
+   if ( INTCONbits.GIE == 1)
+   {
+      INTCONbits.GIE = 0;
+      flagGIE = 1;
+   }
+    if ( INTCONbits.GIEH == 1)
+   {
+      INTCONbits.GIEH= 0;
+      flagGIEH = 1;
+   }
+    if ( INTCONbits.GIEL == 1)
+   {
+      INTCONbits.GIEL = 0;
+      flagGIEL = 1;
+   }
+   EECON2 = 0x55;
+   EECON2 = 0xAA;
+   EECON1bits.WR = 0x01;
+ while (EECON1bits.WR)
+   
+ if (flagGIE == 1 )
+ {
+    INTCONbits.GIE = 1;
+ }
+ if (flagGIEH == 1 )
+ {
+    INTCONbits.GIEH = 1;
+ }
+ if (flagGIEL == 1 )
+ {
+    INTCONbits.GIEL = 1;
+ }
+   
+ EECON1bits.WREN = 0x00;
+ 
+ if ( EEPROM_Read (address) == data)
+ {
+    return (1);
+    
+ } 
+ else {
+    
+    return (0);
+ }
+ 
+}
+
+
+void CorrectPassword()
+{
+            putrsUSART("\r\n\n");
+            putrsUSART("\r\n\n");
+            putrsUSART("Select one of the below Options: ");
+            putrsUSART("\r\n\n"); // sent returns and new line and repeat process
+            putrsUSART("\r\n\n");
+            putrsUSART("\r\n\n");
+
+  while(BusyUSART()); // wait till not busy
+
+// wait for user input
+//while (!DataRdyUSART()); //Make sure is ready
+   
+            putrsUSART("1) Press L to Lock.");         
+            putrsUSART("\r\n\n"); // sent returns and new line and repeat process
+            putrsUSART("2) Press U to Unlock.");       
+            putrsUSART("\r\n\n"); // sent returns and new line and repeat process
+            putrsUSART("3) Press C to Change Password.");
+            putrsUSART("\r\n\n"); // sent returns and new line and repeat process
+            putrsUSART("\r\n\n");
+            putrsUSART("Waiting for Response: ");
+            putrsUSART("\r\n\n\n"); 
+            putrsUSART("\r\n\n");
+
+while(1)
+  {
+                  if (DataRdyUSART())
+                  {
+                       Inputdata = ReadUSART();
+
+                        if(( Inputdata == 'L') || ( Inputdata == 'l'))
+			   {
+			       putrsUSART("L \n");
+                   putrsUSART(" The System Locked \n");
+			       putrsUSART("\r\n\n"); 
+			       putrsUSART("\r\n\n");
+			     LUCK = 1;   
+			     
+			      break;
+			      }
+                        if(( Inputdata == 'U') || ( Inputdata == 'u'))
+			   {
+			       putrsUSART("U \n");
+                   putrsUSART(" The System Unlocked \n");
+			       putrsUSART("\r\n\n"); 
+			       putrsUSART("\r\n\n");
+
+	            	LUCK = 0;
+        			       
+			       break;
+
+			      }
+                        if(( Inputdata == 'C') || ( Inputdata == 'c'))
+			   {
+			       putrsUSART("C");
+			       putrsUSART("\r\n\n"); 
+			       putrsUSART("\r\n\n");
+			       putrsUSART("\r\n\n");
+			       putrsUSART("Enter New Password: ");
+			       putrsUSART("\r\n\n");
+			       PasswordChange();
+			       break;
+			      }
+
+
+                  }
+            }
+}
+
+
+void WrongPassword()
+{
+         int x = 0;
+         BUZ = 1;
+         Delay10KTCYx(300);
+   
+ while(1)
+     {
+                   putrsUSART("****** Warning Alarm ******  ");
+	               putrsUSART("\r\n\n");
+	               putrsUSART("\r\n\n");
+                     LED1 = 1;
+                     Delay10KTCYx(100);
+                     LED1 = 0;
+                         LED2 = 1;
+                         Delay10KTCYx(100);
+                         LED2 = 0;
+                            LED3 = 1;
+                            Delay10KTCYx(100);
+                            LED3 = 0;
+                            x = x + 1;
+          if(x > 10)
+             {
+                break;
+             }
+      }
+	 
+     BUZ = 0;
+}
+
+
+
+
+void PasswordChange()
+{
+            while(1)
+            {
+	    
+                  if (DataRdyUSART())
+                  {
+                     
+
+                      getsUSART(input,3);      //get character from buffer into input
+                      putrsUSART("\r\r***");
+
+                      EEPROM_Write(0x00,  input[0]);
+                      Pass1 = EEPROM_Read(0x00);       
+            
+                      EEPROM_Write(0x01,  input[1]);
+                      Pass2 = EEPROM_Read(0x01);
+
+                      EEPROM_Write(0x02,  input[2]);
+                      Pass3 = EEPROM_Read(0x02);
+
+                      break;
+
+                  }
+            }
+            
+
+                      putrsUSART("\r\n\n");  
+
+}
